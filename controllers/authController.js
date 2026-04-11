@@ -1,4 +1,4 @@
-const User = require("../models/User");
+const User = require("../models/user");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const gym = require("../models/gym");
@@ -39,7 +39,7 @@ exports.userLogin = async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, planId, email, address, city, state, ownerName, gymName },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
     );
 
     res.cookie("token", token, {
@@ -79,7 +79,7 @@ exports.adminLogin = async (req, res) => {
   const token = jwt.sign(
     { id: admin.id, role: admin.role },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "7d" },
   );
 
   res.cookie("token", token, {
