@@ -15,11 +15,10 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "https://gym.softwayx.in"],
     credentials: true,
   }),
 );
-
 app.post("/login", authController.userLogin);
 app.post("/admin/login", authController.adminLogin);
 app.get("/admin/logout", authController.logout);
