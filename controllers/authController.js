@@ -44,8 +44,8 @@ exports.userLogin = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: false,
+      secure: true, // MUST (https ke liye)
+      sameSite: "None", // 🔥 MOST IMPORTANT
     });
 
     res.json({ action: true, message: "User login success", data: user });
