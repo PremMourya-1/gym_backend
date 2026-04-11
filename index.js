@@ -21,7 +21,7 @@ app.use(
       "https://6q9zlrx2-5173.inc1.devtunnels.ms/",
     ],
     credentials: true,
-  })
+  }),
 );
 
 app.post("/login", authController.userLogin);
@@ -37,7 +37,7 @@ app.use("/", userRoutes);
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(process.env.PORT, () => {
+    app.listen(process.env.PORT || 3000, () => {
       console.log("Server running");
     });
   } catch (err) {
