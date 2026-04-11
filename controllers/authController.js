@@ -42,10 +42,17 @@ exports.userLogin = async (req, res) => {
       process.env.JWT_SECRET,
     );
 
+    // for locale
+    // res.cookie("token", token, {
+    //   httpOnly: true,
+    //   secure: false, // MUST (https ke liye)
+    //   sameSite: "none", // 🔥 MOST IMPORTANT
+    // });
+    // for live
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true, // MUST (https ke liye)
-      sameSite: "None", // 🔥 MOST IMPORTANT
+      secure: true, // because backend is HTTPS (Render)
+      sameSite: "none", // cross-site allowed
     });
 
     res.json({ action: true, message: "User login success", data: user });
