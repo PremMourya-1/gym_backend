@@ -23,7 +23,7 @@ exports.register = async (req, res) => {
 
 exports.userLogin = async (req, res) => {
   const { phone, password } = req.body;
-
+  console.log("admin login login");
   try {
     const user = await gym.findOne({ phone });
 
