@@ -28,6 +28,9 @@ app.use(
  * AUTH ROUTES (CLEAN API)
  * =========================
  */
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to Gym Management API" });
+});
 app.post("/api/login", authController.userLogin);
 app.post("/api/admin/login", authController.adminLogin);
 app.post("/api/register", authController.register);
