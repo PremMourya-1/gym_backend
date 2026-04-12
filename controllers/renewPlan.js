@@ -92,7 +92,8 @@ const getClientRenewals = async (req, res) => {
     const { clientId } = req.params;
 
     const renewals = await Renewal.find({ clientId }).sort({ renewalDate: -1 });
-
+    const client = await gymClients.findOne({ id: clientId });
+    console.log(client);
     if (!renewals.length) {
       return res.status(404).json({
         action: false,
@@ -101,13 +102,12 @@ const getClientRenewals = async (req, res) => {
     }
 
     // 🔥 client info (first record se)
-    const first = renewals[0];
 
     const clientInfo = {
-      clientId: first.clientId,
-      clientName: first.client.clientName,
-      mobileNo: first.client.mobileNo,
-      joiningDate: first.joiningDate,
+      clientId: client.id,
+      clientName: client.clientName,
+      mobileNo: client.mobileNo,
+      joiningDate: client.joiningDate,
     };
 
     // 🔥 renewal list (clean)
