@@ -23,9 +23,10 @@ exports.register = async (req, res) => {
 
 exports.userLogin = async (req, res) => {
   const { phone, password } = req.body;
-  console.log("admin login login");
+  console.log("gym login");
   try {
     const user = await gym.findOne({ phone });
+    console.log(user);
 
     if (!user)
       return res.status(200).json({ action: false, message: "User not found" });

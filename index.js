@@ -18,7 +18,7 @@ app.use(cookieParser());
 // CORS (production ready)
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://gym.softwayx.in"],
+    origin: process.env.frontCorsUrl,
     credentials: true,
   }),
 );
@@ -29,7 +29,7 @@ app.use(
  * =========================
  */
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Gym Management API" });
+  res.send("server is running on port 3000");
 });
 app.post("/api/login", authController.userLogin);
 app.post("/api/admin/login", authController.adminLogin);
