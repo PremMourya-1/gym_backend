@@ -12,6 +12,7 @@ exports.getDashboard = async (req, res) => {
       today.getMonth(),
       today.getDate(),
     );
+    console.log(startOfToday);
 
     const last12Months = new Date(
       today.getFullYear(),
@@ -61,7 +62,9 @@ exports.getDashboard = async (req, res) => {
 
     clients.forEach((c) => {
       const joinDate = new Date(c.joiningDate);
+      const createdAt = new Date(c.createdAt);
       joinDate.setHours(0, 0, 0, 0);
+      createdAt.setHours(0, 0, 0, 0);
 
       const renewalDateRaw = c.lastRenewalDate
         ? new Date(c.lastRenewalDate)
@@ -77,16 +80,19 @@ exports.getDashboard = async (req, res) => {
 
       // ✅ registrations
       if (joinDate >= startOfMonth) thisMonthRegistered++;
-      if (joinDate >= startOfToday) todayRegistered++;
+      // updated logic by prem
+      //  yaha neeche createdat ki jagah joining date thi
+      if (createdAt >= startOfToday) todayRegistered++;
 
       // ✅ collection (cash flow)
       if (renewalDateRaw >= startOfMonth || joinDate >= startOfMonth) {
         thisMonthCollection += paid;
       }
+      // updated logic by prem
+      if (createdAt >= startOfToday) todayCollection += paid;
 
       if (renewalDateRaw >= startOfToday) {
-        todayCollection += paid;
-
+        // todayCollection += paid; // pahle esa tha
         todaysRenewals.push({
           clientName: c.clientName,
           plan: c.plan?.name,
