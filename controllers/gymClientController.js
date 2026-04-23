@@ -213,8 +213,24 @@ exports.createGymClient = async (req, res) => {
 exports.updateGymClient = async (req, res) => {
   try {
     const id = req.params.id;
-    const payload = req.body;
+    let payload = req.body;
 
+    // 🔥 STEP 1: purana data nikaal
+    const oldData = await gymClient.findOne({ id });
+
+    // 🔥 STEP 2: agar new photo aayi hai
+    if (req.file) {
+      payload.photo = `/uploads/${req.file.filename}`;
+
+      // 🔥 STEP 3: old photo delete karo
+      if (oldData?.photo) {
+        fs.unlink("." + oldData.photo, (err) => {
+          if (err) console.log("Old photo delete error:", err);
+        });
+      }
+    }
+
+    // 🔥 STEP 4: update data
     const data = await gymClient.findOneAndUpdate({ id }, payload, {
       new: true,
     });
@@ -222,10 +238,10 @@ exports.updateGymClient = async (req, res) => {
     res.status(200).json({
       action: true,
       message: "gym client updated successfully",
-      data: data,
+      data,
     });
   } catch (e) {
-    res.status(200).json({
+    res.status(500).json({
       action: false,
       message: "Error updating gym client",
       error: e.message,

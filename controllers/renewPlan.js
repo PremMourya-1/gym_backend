@@ -93,7 +93,6 @@ const getClientRenewals = async (req, res) => {
 
     const renewals = await Renewal.find({ clientId }).sort({ renewalDate: -1 });
     const client = await gymClients.findOne({ id: clientId });
-    console.log(client);
     if (!renewals.length) {
       return res.status(404).json({
         action: false,
