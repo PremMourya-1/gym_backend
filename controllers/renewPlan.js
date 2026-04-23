@@ -107,6 +107,7 @@ const getClientRenewals = async (req, res) => {
       clientName: client.clientName,
       mobileNo: client.mobileNo,
       joiningDate: client.joiningDate,
+      photo: client.photo,
     };
 
     // 🔥 renewal list (clean)
