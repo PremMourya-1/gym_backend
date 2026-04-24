@@ -278,12 +278,12 @@ exports.deleteGymClient = async (req, res) => {
 exports.updateClientPhoto = async (req, res) => {
   try {
     const id = req.params.id;
+    const { photo } = req.body; // 👈 URL aayega
 
-    // file check
-    if (!req.file) {
+    if (!photo) {
       return res.status(200).json({
         action: false,
-        message: "Photo is required",
+        message: "Photo URL is required",
       });
     }
 
@@ -296,8 +296,8 @@ exports.updateClientPhoto = async (req, res) => {
       });
     }
 
-    // 🔄 update photo
-    client.photo = req.file.filename;
+    // 🔥 direct URL save
+    client.photo = photo;
 
     await client.save();
 
@@ -307,7 +307,7 @@ exports.updateClientPhoto = async (req, res) => {
       data: client,
     });
   } catch (e) {
-    res.status(200).json({
+    res.status(500).json({
       action: false,
       message: "Error updating photo",
       error: e.message,

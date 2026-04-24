@@ -39,12 +39,7 @@ router
   .route("/gymClient/:id")
   .put(authMiddleware, upload.single("photo"), updateGymClient);
 router.route("/gymClient/:id").delete(authMiddleware, deleteGymClient);
-router.put(
-  "/gymClient/client-photo/:id",
-  authMiddleware,
-  upload.single("photo"),
-  updateClientPhoto,
-);
+router.put("/gymClient/client-photo/:id", authMiddleware, updateClientPhoto);
 
 router.route("/dashboard").get(authMiddleware, getDashboard);
 //

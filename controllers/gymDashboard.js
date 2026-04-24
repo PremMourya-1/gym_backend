@@ -12,7 +12,6 @@ exports.getDashboard = async (req, res) => {
       today.getMonth(),
       today.getDate(),
     );
-    console.log(startOfToday);
 
     const last12Months = new Date(
       today.getFullYear(),
