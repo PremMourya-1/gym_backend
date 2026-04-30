@@ -51,8 +51,8 @@ const createRenewal = async (req, res) => {
       renewalDate: today,
       joiningDate: startDate,
       expiryDate: endDate,
-
       paidAmount,
+      totalCollectedAmount: paidAmount,
       pendingAmount,
       discountAmount,
     });
@@ -71,7 +71,8 @@ const createRenewal = async (req, res) => {
     client.paidAmount = Number(paidAmount || 0);
     client.pendingAmount = Number(pendingAmount || 0);
     client.discountAmount = Number(discountAmount || 0);
-    client.totalPendingAmount = client.totalPendingAmount + pendingAmount;
+    client.totalPendingAmount =
+      Number(client.totalPendingAmount) + Number(pendingAmount || 0);
 
     await client.save();
 
@@ -122,7 +123,7 @@ const getClientRenewals = async (req, res) => {
 
     // 🔥 totals calculate
     let totalPending = 0;
-    let totalPaid = 0;
+    let totalCollectedAmount = 0;
     let totalDiscount = 0;
 
     let totalPendingReceived = 0;
@@ -130,7 +131,7 @@ const getClientRenewals = async (req, res) => {
 
     renewals.forEach((r) => {
       totalPending += Number(r.pendingAmount || 0);
-      totalPaid += Number(r.paidAmount || 0);
+      totalCollectedAmount += Number(r.totalCollectedAmount || 0);
       totalDiscount += Number(r.discountAmount || 0);
 
       totalPendingReceived += Number(r.totalPendingReceived || 0);
@@ -147,7 +148,7 @@ const getClientRenewals = async (req, res) => {
         // 🔥 NEW
         summary: {
           totalPending,
-          totalPaid,
+          totalCollectedAmount,
           totalDiscount,
           totalPendingReceived,
           totalDiscountOnPending,
@@ -217,6 +218,10 @@ receivePending = async (req, res) => {
 
     renewal.totalPendingReceived =
       Number(renewal.totalPendingReceived || 0) + payAmount;
+    renewal.totalCollectedAmount =
+      Number(renewal.totalCollectedAmount || 0) + payAmount;
+
+    console.log("y rha renewal aid amount", renewal.totalCollectedAmount);
 
     if (markAsDiscount) {
       renewal.discountOnPending =
@@ -233,13 +238,29 @@ receivePending = async (req, res) => {
     // 🔥 CLIENT UPDATE (ONLY CURRENT STATE)
     // =========================
 
+    const totalReceivedWithDiscountTillToday =
+      Number(client.discountAmount) + Number(client.paidAmount);
+
+    const howMuchNeeded =
+      Number(client.plan?.amount) - totalReceivedWithDiscountTillToday;
+
+    const howMuchExtra = payAmount - howMuchNeeded;
+    // payamount = 400
+    // need = 300
+    // difference = 100 (extra)
+    const updateOnlyWithThisAmount = payAmount - howMuchExtra; // 300
+
     if (markAsDiscount) {
       client.pendingAmount = 0;
     } else {
-      client.pendingAmount = client.pendingAmount - payAmount;
+      client.pendingAmount = client.pendingAmount - updateOnlyWithThisAmount;
     }
 
-    client.paidAmount = Number(client.paidAmount || 0) + payAmount;
+    console.log(updateOnlyWithThisAmount, "if s pahle");
+    if (updateOnlyWithThisAmount > 0) {
+      console.log(updateOnlyWithThisAmount, "y amount s update kro");
+      client.paidAmount = updateOnlyWithThisAmount + Number(client.paidAmount);
+    }
     client.totalPendingAmount = remaining;
 
     await client.save();

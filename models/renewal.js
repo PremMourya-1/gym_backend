@@ -47,6 +47,9 @@ const renewalSchema = new mongoose.Schema(
     paidAmount: {
       type: String,
     },
+    totalCollectedAmount: {
+      type: String,
+    },
 
     pendingAmount: {
       type: String,

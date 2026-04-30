@@ -91,7 +91,7 @@ exports.getGymClient = async (req, res) => {
       processed = processed.filter((c) => c.isActive === true && c.expired < 0);
     } else if (isPending == 1) {
       processed = processed.filter(
-        (c) => c.isActive === true && Number(c.pendingAmount) > 0,
+        (c) => c.isActive === true && Number(c.totalPendingAmount) > 0,
       );
     }
 
@@ -185,7 +185,7 @@ exports.createGymClient = async (req, res) => {
       renewalDate: joiningDate,
       joiningDate: joiningDate,
       expiryDate: expiryDate,
-
+      totalCollectedAmount: payload.paidAmount,
       paidAmount: payload.paidAmount,
       pendingAmount: payload.pendingAmount,
       discountAmount: payload.discountAmount,
