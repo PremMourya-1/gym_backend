@@ -32,6 +32,7 @@ app.get("/", (req, res) => {
   res.send("server is running on port 3000");
 });
 app.head("/ping", (req, res) => {
+  console.log("ping received");
   res.status(200).end();
 });
 app.post("/api/login", authController.userLogin);
