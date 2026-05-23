@@ -1,5 +1,6 @@
 const GymClient = require("../models/gymClients");
 const gymPlan = require("../models/gymPlan");
+const { resolveClientExpiryDate } = require("../utils/offerExpiry");
 
 exports.getDashboard = async (req, res) => {
   try {
@@ -116,12 +117,10 @@ exports.getDashboard = async (req, res) => {
       // ✅ EXPIRY CALCULATION
       // ============================
 
-      const baseDate = c.lastRenewalDate
-        ? new Date(c.lastRenewalDate)
-        : new Date(c.joiningDate);
-
-      const expiryDate = new Date(baseDate);
-      expiryDate.setMonth(expiryDate.getMonth() + planDurationMonths);
+      const expiryDate = resolveClientExpiryDate({
+        client: c,
+        durationMonths: planDurationMonths,
+      });
 
       const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
 
@@ -196,7 +195,9 @@ exports.getDashboard = async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .limit(5)
-      .select("clientName mobileNo plan joiningDate lastRenewalDate");
+      .select(
+        "clientName mobileNo plan joiningDate lastRenewalDate expiryDate",
+      );
 
     res.status(200).json({
       action: true,

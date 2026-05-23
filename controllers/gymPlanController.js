@@ -1,8 +1,11 @@
 const gymPlan = require("../models/gymPlan");
+const gymClient = require("../models/gymClients");
 
 exports.getGymPlan = async (req, res) => {
   try {
-    const data = await gymPlan.find({"gym.id": req.user.id}).sort({ createdAt: -1 });
+    const data = await gymPlan
+      .find({ "gym.id": req.user.id })
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       action: true,
@@ -67,6 +70,18 @@ exports.updateGymPlan = async (req, res) => {
 exports.deleteGymPlan = async (req, res) => {
   try {
     const id = req.params.id;
+    const assignedClient = await gymClient.findOne({
+      planId: id,
+      "gym.id": req.user.id,
+    });
+
+    if (assignedClient) {
+      return res.status(200).json({
+        action: false,
+        message:
+          "gym plan assigned hai already delete nahi ho skta only update ho skta hai",
+      });
+    }
 
     const result = await gymPlan.deleteOne({ id });
 

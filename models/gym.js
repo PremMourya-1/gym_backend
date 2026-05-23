@@ -63,14 +63,16 @@ const gymSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    planData: {
+      id: String,
+      name: String,
+      duration: Number,
+      amount: Number,
+    },
 
     planStartDate: {
       type: Date,
       required: true,
-    },
-
-    planEndDate: {
-      type: Date,
     },
 
     logo: {

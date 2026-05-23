@@ -1,5 +1,6 @@
 const Gym = require("../models/gym");
 const bcrypt = require("bcryptjs");
+const plan = require("../models/plan");
 
 // ✅ GET ALL
 exports.getGym = async (req, res) => {
@@ -26,10 +27,17 @@ exports.createGym = async (req, res) => {
     const payload = req.body;
 
     const hash = await bcrypt.hash(payload.password, 10);
+    const planData = await plan.findOne({ id: payload.planId });
 
     const data = await Gym.create({
       ...payload,
       password: hash,
+      planData: {
+        id: planData.id,
+        name: planData.name,
+        duration: planData.duration,
+        amount: planData.amount,
+      },
     });
 
     res.status(200).json({

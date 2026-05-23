@@ -1,6 +1,11 @@
 const gymClients = require("../models/gymClients");
 const GymClient = require("../models/gymClients");
 const Renewal = require("../models/renewal");
+const gymPlan = require("../models/gymPlan");
+const {
+  getApplicableOffer,
+  calculateExpiryDate,
+} = require("../utils/offerExpiry");
 
 const createRenewal = async (req, res) => {
   try {
@@ -12,6 +17,7 @@ const createRenewal = async (req, res) => {
       pendingAmount,
       discountAmount,
       renewalDate,
+      withOffer,
     } = req.body;
 
     // 1. client fetch
@@ -23,14 +29,35 @@ const createRenewal = async (req, res) => {
     // 2. startDate logic
     const today = new Date(renewalDate || new Date());
 
+    const planData = await gymPlan.findOne({
+      id: planId,
+      "gym.id": client.gym.id,
+    });
+
+    if (!planData) {
+      return res.status(200).json({
+        action: false,
+        message: "Invalid planId",
+      });
+    }
+
     const startDate =
       new Date(client.expiryDate) > today ? new Date(client.expiryDate) : today;
 
-    // 3. duration nikalna (plan se ya client se)
-    const duration = Number(client.plan?.duration || 1);
+    const applyOffer = Number(withOffer) === 1;
+    const offer = applyOffer
+      ? await getApplicableOffer({
+          gymId: client.gym.id,
+          planId,
+          referenceDate: startDate,
+        })
+      : null;
 
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + duration);
+    const endDate = calculateExpiryDate({
+      startDate,
+      durationMonths: planData.duration || 1,
+      bonusDays: offer?.days || 0,
+    });
 
     // 4. Renewal entry create (history)
     await Renewal.create({
@@ -42,11 +69,20 @@ const createRenewal = async (req, res) => {
 
       planId: planId,
       plan: {
-        id: planId,
-        name: client.plan?.name,
-        amount: planAmount,
-        duration: client.plan?.duration,
+        id: planData.id,
+        name: planData.name,
+        amount: planData.price,
+        duration: planData.duration,
       },
+      offer: offer
+        ? {
+            id: offer.id,
+            name: offer.offerName,
+            days: offer.days,
+            offerStartDate: offer.offerStartDate,
+            offerEndDate: offer.offerEndDate,
+          }
+        : undefined,
 
       renewalDate: today,
       joiningDate: startDate,
@@ -60,10 +96,21 @@ const createRenewal = async (req, res) => {
     // 5. GymClient update (current state)
     client.planId = planId;
     client.plan = {
-      ...client.plan,
-      id: planId,
-      amount: planAmount,
+      id: planData.id,
+      amount: planData.price,
+      name: planData.name,
+      duration: planData.duration,
     };
+
+    client.offer = offer
+      ? {
+          id: offer.id,
+          name: offer.offerName,
+          days: offer.days,
+          offerStartDate: offer.offerStartDate,
+          offerEndDate: offer.offerEndDate,
+        }
+      : undefined;
 
     client.lastRenewalDate = today;
     client.expiryDate = endDate;
@@ -119,6 +166,9 @@ const getClientRenewals = async (req, res) => {
       pendingAmount: r.pendingAmount,
       discountAmount: r.discountAmount,
       expiryDate: r.expiryDate,
+      expired: Math.ceil(
+        (new Date(r.expiryDate) - new Date()) / (1000 * 60 * 60 * 24),
+      ),
     }));
 
     // 🔥 totals calculate

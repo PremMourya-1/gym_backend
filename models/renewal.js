@@ -30,6 +30,13 @@ const renewalSchema = new mongoose.Schema(
       amount: String,
       duration: String,
     },
+    offer: {
+      id: String,
+      name: String,
+      days: Number,
+      offerStartDate: Date,
+      offerEndDate: Date,
+    },
 
     renewalDate: {
       type: Date,
