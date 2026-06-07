@@ -182,3 +182,95 @@ exports.changePassword = async (req, res) => {
     });
   }
 };
+
+// ✅ FREE REGISTRATION - without auth
+exports.freeRegister = async (req, res) => {
+  try {
+    const {
+      gymName,
+      ownerName,
+      email,
+      phone,
+      username,
+      password,
+      address,
+      city,
+      state,
+    } = req.body;
+
+    // ✅ VALIDATION
+    if (!gymName || !ownerName || !email || !phone || !username || !password) {
+      return res.status(200).json({
+        action: false,
+        message:
+          "Please provide gymName, ownerName, email, phone, username, and password",
+      });
+    }
+
+    // ✅ CHECK IF PHONE ALREADY EXISTS
+    const existingGym = await Gym.findOne({ phone: String(phone) });
+    if (existingGym) {
+      return res.status(200).json({
+        action: false,
+        message: "Gym already registered with this phone number",
+      });
+    }
+
+    // ✅ CHECK IF USERNAME ALREADY EXISTS
+    const existingUsername = await Gym.findOne({ username: String(username) });
+    if (existingUsername) {
+      return res.status(200).json({
+        action: false,
+        message: "Username already taken",
+      });
+    }
+
+    // ✅ GET FREE PLAN
+    const freePlan = await plan.findOne({ name: "free" });
+
+    if (!freePlan) {
+      return res.status(200).json({
+        action: false,
+        message: "Free plan not available",
+      });
+    }
+
+    // ✅ HASH PASSWORD
+    const hash = await bcrypt.hash(String(password), 10);
+
+    // ✅ CREATE GYM
+    const newGym = await Gym.create({
+      gymName: gymName.trim(),
+      ownerName: ownerName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: String(phone).trim(),
+      username: username.trim(),
+      password: hash,
+      address: address ? address.trim() : undefined,
+      city: city ? city.trim() : undefined,
+      state: state ? state.trim() : undefined,
+      planId: freePlan.id,
+      planData: {
+        id: freePlan.id,
+        name: freePlan.name,
+        duration: freePlan.duration,
+        amount: freePlan.amount,
+      },
+      planStartDate: new Date(), // Current date
+      status: true,
+    });
+
+    res.status(200).json({
+      action: true,
+      message: "Gym registered successfully",
+      data: newGym,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(200).json({
+      action: false,
+      message: "Error during registration",
+      error: error.message,
+    });
+  }
+};

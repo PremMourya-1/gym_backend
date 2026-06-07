@@ -6,6 +6,7 @@ require("dotenv").config();
 const connectDB = require("./config/db");
 
 const authController = require("./controllers/authController");
+const gymController = require("./controllers/gymController");
 const adminRoutes = require("./routes/adminRoutes");
 const userRoutes = require("./routes/userRoutes");
 const contactRoutes = require("./routes/contactRoutes");
@@ -51,6 +52,7 @@ app.head("/ping", (req, res) => {
 app.post("/api/login", authController.userLogin);
 app.post("/api/admin/login", authController.adminLogin);
 app.post("/api/register", authController.register);
+app.post("/api/free-register", gymController.freeRegister);
 
 app.get("/api/logout", authController.logout);
 app.get("/api/admin/logout", authController.logout);
