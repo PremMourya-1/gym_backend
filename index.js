@@ -8,6 +8,7 @@ const connectDB = require("./config/db");
 const authController = require("./controllers/authController");
 const adminRoutes = require("./routes/adminRoutes");
 const userRoutes = require("./routes/userRoutes");
+const contactRoutes = require("./routes/contactRoutes");
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.get("/api/admin/logout", authController.logout);
  */
 app.use("/api/admin", adminRoutes);
 app.use("/api", userRoutes);
+app.use("/api/contact", contactRoutes);
 
 /**
  * =========================
