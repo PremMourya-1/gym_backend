@@ -20,7 +20,11 @@ app.use(cookieParser());
 // CORS (production ready)
 app.use(
   cors({
-    origin: [process.env.frontCorsUrl, process.env.frontCorsUrl2],
+    origin: [
+      process.env.frontCorsUrl,
+      process.env.frontCorsUrl2,
+      process.env.corsForLiveWebsite,
+    ],
     credentials: true,
   }),
 );
