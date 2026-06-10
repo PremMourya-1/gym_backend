@@ -10,12 +10,18 @@ const gymController = require("./controllers/gymController");
 const adminRoutes = require("./routes/adminRoutes");
 const userRoutes = require("./routes/userRoutes");
 const contactRoutes = require("./routes/contactRoutes");
+const sendEmail = require("./utils/sendEmail");
 
 const app = express();
 
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
+
+app.get("/test-email", async (req, res) => {
+  await sendEmail();
+  res.send("Email Sent done hai bhai");
+});
 
 // CORS (production ready)
 app.use(
@@ -29,23 +35,6 @@ app.use(
   }),
 );
 
-// app.use(
-//   cors({
-//     origin: [
-//       process.env.frontCorsUrl,
-//       process.env.frontCorsUrl2,
-//       "http://localhost:3000",
-//       "https://yourdomain.com",
-//     ],
-//     credentials: true,
-//   }),
-// );
-
-/**
- * =========================
- * AUTH ROUTES (CLEAN API)
- * =========================
- */
 app.get("/", (req, res) => {
   res.send("server is running on port 3000");
 });
@@ -57,6 +46,12 @@ app.post("/api/login", authController.userLogin);
 app.post("/api/admin/login", authController.adminLogin);
 app.post("/api/register", authController.register);
 app.post("/api/free-register", gymController.freeRegister);
+
+app.post(
+  "/api/free-register/send-verification-code",
+  gymController.sendVerificationCode,
+);
+app.post("/api/free-register/verify-email", gymController.verifyEmailOtp);
 
 app.get("/api/logout", authController.logout);
 app.get("/api/admin/logout", authController.logout);

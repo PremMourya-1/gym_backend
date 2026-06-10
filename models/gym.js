@@ -74,6 +74,16 @@ const gymSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationCode: {
+      type: String,
+    },
+    emailVerificationCodeExpires: {
+      type: Date,
+    },
 
     logo: {
       type: String,

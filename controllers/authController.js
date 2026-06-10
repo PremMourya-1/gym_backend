@@ -30,6 +30,15 @@ exports.userLogin = async (req, res) => {
 
     if (!user)
       return res.status(200).json({ action: false, message: "User not found" });
+
+    if (!user.emailVerified) {
+      return res.status(200).json({
+        action: false,
+        message:
+          "Email is not verified. Please verify your email before login.",
+      });
+    }
+
     const { email, planId, address, city, state, ownerName, gymName } =
       user || {};
 

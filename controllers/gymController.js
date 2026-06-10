@@ -1,6 +1,29 @@
+const fs = require("fs");
+const path = require("path");
 const Gym = require("../models/gym");
+const EmailVerification = require("../models/emailVerification");
 const bcrypt = require("bcryptjs");
 const plan = require("../models/plan");
+const sendEmail = require("../utils/sendEmail");
+
+const generateOtp = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+const getVerifyEmailHtml = async (otp) => {
+  const filePath = path.join(__dirname, "../public/verifyEmail.html");
+  const html = await fs.promises.readFile(filePath, "utf8");
+  return html.replace("${otp}", otp);
+};
+
+const sendVerificationEmail = async (email, otp) => {
+  const html = await getVerifyEmailHtml(otp);
+  await sendEmail({
+    to: email,
+    subject: "GymFox Email Verification Code",
+    html,
+  });
+};
 
 // ✅ GET ALL
 exports.getGym = async (req, res) => {
@@ -225,6 +248,17 @@ exports.freeRegister = async (req, res) => {
       });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // ✅ CHECK IF EMAIL ALREADY EXISTS
+    const existingEmail = await Gym.findOne({ email: normalizedEmail });
+    if (existingEmail) {
+      return res.status(200).json({
+        action: false,
+        message: "Email already registered",
+      });
+    }
+
     // ✅ GET FREE PLAN
     const freePlan = await plan.findOne({ name: "free" });
 
@@ -237,12 +271,18 @@ exports.freeRegister = async (req, res) => {
 
     // ✅ HASH PASSWORD
     const hash = await bcrypt.hash(String(password), 10);
+    const otp = generateOtp();
+    const verification = await EmailVerification.findOne({
+      email: normalizedEmail,
+      verified: true,
+    });
+    const isEmailVerified = Boolean(verification);
 
     // ✅ CREATE GYM
     const newGym = await Gym.create({
       gymName: gymName.trim(),
       ownerName: ownerName.trim(),
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       phone: String(phone).trim(),
       username: username.trim(),
       password: hash,
@@ -258,18 +298,165 @@ exports.freeRegister = async (req, res) => {
       },
       planStartDate: new Date(), // Current date
       status: true,
+      emailVerified: isEmailVerified,
+      emailVerificationCode: isEmailVerified ? undefined : otp,
+      emailVerificationCodeExpires: isEmailVerified
+        ? undefined
+        : new Date(Date.now() + 10 * 60 * 1000),
     });
+
+    try {
+      await sendVerificationEmail(newGym.email, otp);
+    } catch (emailError) {
+      console.log("Verification email failed:", emailError);
+      return res.status(200).json({
+        action: false,
+        message:
+          "Registration succeeded but verification email could not be sent. Please try resend verification.",
+        error: emailError.message,
+      });
+    }
 
     res.status(200).json({
       action: true,
-      message: "Gym registered successfully",
-      data: newGym,
+      message: "Gym registered successfully. Verification code sent to email.",
+      data: {
+        id: newGym.id,
+        email: newGym.email,
+        username: newGym.username,
+        emailVerified: newGym.emailVerified,
+      },
     });
   } catch (error) {
     console.log(error);
     res.status(200).json({
       action: false,
       message: "Error during registration",
+      error: error.message,
+    });
+  }
+};
+
+exports.sendVerificationCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(200).json({
+        action: false,
+        message: "Email is required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const gymData = await Gym.findOne({ email: normalizedEmail });
+    if (gymData) {
+      return res.status(200).json({
+        action: false,
+        message: "Email already registered",
+      });
+    }
+
+    const otp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    const verification = await EmailVerification.findOneAndUpdate(
+      { email: normalizedEmail },
+      {
+        code: otp,
+        expiresAt,
+        verified: false,
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+
+    await sendVerificationEmail(normalizedEmail, otp);
+
+    res.status(200).json({
+      action: true,
+      message: "Verification code sent to email",
+      data: { email: normalizedEmail },
+    });
+  } catch (error) {
+    console.log("sendVerificationCode error:", error);
+    res.status(200).json({
+      action: false,
+      message: "Could not send verification code",
+      error: error.message,
+    });
+  }
+};
+
+exports.verifyEmailOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(200).json({
+        action: false,
+        message: "Email and otp are required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const verification = await EmailVerification.findOne({
+      email: normalizedEmail,
+    });
+
+    if (!verification) {
+      return res.status(200).json({
+        action: false,
+        message: "No verification request found for this email",
+      });
+    }
+
+    if (verification.verified) {
+      return res.status(200).json({
+        action: true,
+        message: "Email already verified",
+        data: { email: normalizedEmail, emailVerified: true },
+      });
+    }
+
+    if (!verification.expiresAt || new Date() > verification.expiresAt) {
+      return res.status(200).json({
+        action: false,
+        message: "Verification code expired. Please resend the code.",
+      });
+    }
+
+    if (String(otp).trim() !== verification.code) {
+      return res.status(200).json({
+        action: false,
+        message: "Invalid verification code",
+      });
+    }
+
+    verification.verified = true;
+    verification.code = undefined;
+    verification.expiresAt = undefined;
+    await verification.save();
+
+    const gymData = await Gym.findOne({ email: normalizedEmail });
+    if (gymData && !gymData.emailVerified) {
+      gymData.emailVerified = true;
+      await gymData.save();
+    }
+
+    res.status(200).json({
+      action: true,
+      message: "Email verified successfully",
+      data: { email: normalizedEmail, emailVerified: true },
+    });
+  } catch (error) {
+    console.log("verifyEmailOtp error:", error);
+    res.status(200).json({
+      action: false,
+      message: "Email verification failed",
       error: error.message,
     });
   }
