@@ -26,18 +26,16 @@ exports.userLogin = async (req, res) => {
   console.log("gym login");
   try {
     const user = await gym.findOne({ phone });
-    console.log(user);
-
     if (!user)
       return res.status(200).json({ action: false, message: "User not found" });
 
-    if (!user.emailVerified) {
-      return res.status(200).json({
-        action: false,
-        message:
-          "Email is not verified. Please verify your email before login.",
-      });
-    }
+    // if (!user.emailVerified) {
+    //   return res.status(200).json({
+    //     action: false,
+    //     message:
+    //       "Email is not verified. Please verify your email before login.",
+    //   });
+    // }
 
     const { email, planId, address, city, state, ownerName, gymName } =
       user || {};
