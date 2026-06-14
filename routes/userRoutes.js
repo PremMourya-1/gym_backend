@@ -23,14 +23,17 @@ const {
   createRenewal,
   receivePending,
 } = require("../controllers/renewPlan");
-const { changePassword } = require("../controllers/gymController");
+const { changePassword, gymProfile } = require("../controllers/gymController");
 const {
   getSubscriptionPlans,
   getCurrentSubscription,
   createSubscriptionOrder,
   verifySubscriptionPayment,
-  activateSubscriptionPlan,
 } = require("../controllers/subscriptionController");
+const {
+  getSubscriptionHistoryByGymId,
+} = require("../controllers/subscriptionHistoryController");
+
 const {
   getOffers,
   createOffer,
@@ -39,6 +42,7 @@ const {
 } = require("../controllers/offerController");
 const router = express.Router();
 
+router.route("/gym-profile").get(authMiddleware, gymProfile);
 router.route("/gymPlan").get(authMiddleware, getGymPlan);
 router.route("/gymPlan/add").post(authMiddleware, createGymPlan);
 router
@@ -78,6 +82,7 @@ router
 router.put("/change-password", authMiddleware, changePassword);
 
 router.route("/subscription/plans").get(authMiddleware, getSubscriptionPlans);
+
 router
   .route("/subscription/current")
   .get(authMiddleware, getCurrentSubscription);
@@ -88,7 +93,7 @@ router
   .route("/subscription/verify-payment")
   .post(authMiddleware, verifySubscriptionPayment);
 router
-  .route("/subscription/activate")
-  .post(authMiddleware, activateSubscriptionPlan);
+  .route("/subscription/history")
+  .get(authMiddleware, getSubscriptionHistoryByGymId);
 
 module.exports = router;

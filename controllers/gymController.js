@@ -25,6 +25,12 @@ const sendVerificationEmail = async (email, otp) => {
   });
 };
 
+const getPlanEndDate = (durationMonths) => {
+  const endDate = new Date();
+  endDate.setMonth(endDate.getMonth() + Number(durationMonths || 0));
+  return endDate;
+};
+
 // ✅ GET ALL
 exports.getGym = async (req, res) => {
   try {
@@ -37,6 +43,25 @@ exports.getGym = async (req, res) => {
     });
   } catch (e) {
     res.status(200).json({
+      action: false,
+      message: "Error fetching gym data",
+      error: e.message,
+    });
+  }
+};
+exports.gymProfile = async (req, res) => {
+  try {
+    const data = await Gym.findOne({ id: req.user.id }).select(
+      "-password -authCode -emailVerified -emailVerificationCode -emailVerificationCodeExpires",
+    );
+
+    res.status(200).json({
+      action: true,
+      message: "gym list fetched",
+      data,
+    });
+  } catch (e) {
+    res.status(500).json({
       action: false,
       message: "Error fetching gym data",
       error: e.message,
@@ -61,6 +86,7 @@ exports.createGym = async (req, res) => {
         duration: planData.duration,
         amount: planData.amount,
       },
+      planEndDate: getPlanEndDate(planData.duration),
     });
 
     res.status(200).json({
@@ -296,7 +322,7 @@ exports.freeRegister = async (req, res) => {
         duration: freePlan.duration,
         amount: freePlan.amount,
       },
-      planStartDate: new Date(), // Current date
+      planEndDate: getPlanEndDate(freePlan.duration),
       status: true,
       emailVerified: isEmailVerified,
       emailVerificationCode: isEmailVerified ? undefined : otp,

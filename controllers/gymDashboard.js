@@ -1,11 +1,27 @@
 const GymClient = require("../models/gymClients");
 const gymPlan = require("../models/gymPlan");
+const Gym = require("../models/gym");
 const { resolveClientExpiryDate } = require("../utils/offerExpiry");
+const {
+  getSubscriptionDetails,
+  buildNotification,
+} = require("../utils/getSubscriptionDetails");
 
 exports.getDashboard = async (req, res) => {
   try {
     const gymId = req.user.id;
     const today = new Date();
+
+    const gymData = await Gym.findOne({ id: gymId });
+    if (!gymData) {
+      return res.status(200).json({
+        action: false,
+        message: "Gym not found",
+      });
+    }
+
+    const subscription = getSubscriptionDetails(gymData);
+    const notification = buildNotification(subscription);
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const startOfToday = new Date(
@@ -218,6 +234,13 @@ exports.getDashboard = async (req, res) => {
 
         last12MonthAnalytics,
         planDistribution: planDistributionData,
+        subscriptionDetails: {
+          planEndDate: gymData.planEndDate,
+          planId: gymData.planId,
+          planData: gymData.planData,
+          status: gymData.status,
+          notification,
+        },
       },
     });
   } catch (e) {

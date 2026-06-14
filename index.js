@@ -61,7 +61,10 @@ app.get("/api/admin/logout", authController.logout);
  * ROUTES MODULES
  * =========================
  */
+// const paymentRoutes = require("./routes/paymentRoutes");
+
 app.use("/api/admin", adminRoutes);
+// app.use("/api", paymentRoutes);
 app.use("/api", userRoutes);
 app.use("/api/contact", contactRoutes);
 

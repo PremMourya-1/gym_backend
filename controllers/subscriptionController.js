@@ -1,155 +1,132 @@
 const crypto = require("crypto");
 const Gym = require("../models/gym");
 const Plan = require("../models/plan");
-const SubscriptionPayment = require("../models/subscriptionPayment");
+const SubscriptionHistory = require("../models/subscriptionHistory");
+const razorpay = require("../config/razorpay");
+const {
+  getSubscriptionDetails,
+  buildNotification,
+} = require("../utils/getSubscriptionDetails");
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-const SUBSCRIPTION_PAGE_LINK = "/subscription-plans";
-
-const getSubscriptionDetails = (gymData) => {
-  const planStartDate = gymData?.planStartDate
-    ? new Date(gymData.planStartDate)
-    : null;
-  const duration = Number(gymData?.planData?.duration || 0);
-
-  let expiryDate = null;
-  let daysRemaining = 0;
-  let isExpired = false;
-
-  if (planStartDate && duration > 0) {
-    expiryDate = new Date(planStartDate);
-    expiryDate.setMonth(expiryDate.getMonth() + duration);
-
-    const now = new Date();
-    daysRemaining = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
-    isExpired = daysRemaining < 0;
-  }
-
-  const isFreePlan =
-    String(gymData?.planData?.amount || 0) === "0" ||
-    String(gymData?.planData?.name || "")
-      ?.toLowerCase()
-      .includes("free");
-
-  let status = "active";
-  if (isExpired) status = "expired";
-  else if (isFreePlan) status = "free";
-  else if (daysRemaining <= 2) status = "expiring-soon";
-
-  return {
-    planStartDate,
-    expiryDate,
-    daysRemaining,
-    status,
-    isFreePlan,
-    isExpired,
-  };
-};
-
-const buildNotification = (subscription) => {
-  if (subscription.isExpired) {
-    return {
-      type: "error",
-      message: "Your subscription has expired. Renew immediately.",
-      actionLabel: "Renew Now",
-      actionLink: SUBSCRIPTION_PAGE_LINK,
-    };
-  }
-
-  if (subscription.status === "expiring-soon") {
-    return {
-      type: "warning",
-      message: `Your subscription plan will expire in ${subscription.daysRemaining} day${
-        subscription.daysRemaining === 1 ? "" : "s"
-      }. Renew now.`,
-      actionLabel: "Renew Now",
-      actionLink: SUBSCRIPTION_PAGE_LINK,
-    };
-  }
-
-  if (subscription.isFreePlan) {
-    return {
-      type: "info",
-      message: "You are currently using Free Plan. Upgrade now.",
-      actionLabel: "Upgrade Now",
-      actionLink: SUBSCRIPTION_PAGE_LINK,
-    };
-  }
-
-  return null;
-};
 
 const getOrCreateRazorpayOrder = async (payload) => {
   const { amountInPaise, currency = "INR", receipt, notes = {} } = payload;
 
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-    return {
-      id: `order_mock_${Date.now()}`,
-      amount: amountInPaise,
-      currency,
-      receipt,
-      notes,
-      provider: "mock",
-      isMock: true,
-    };
+    throw new Error("Razorpay credentials are not configured");
   }
 
-  try {
-    const Razorpay = require("razorpay");
-    const instance = new Razorpay({
-      key_id: RAZORPAY_KEY_ID,
-      key_secret: RAZORPAY_KEY_SECRET,
-    });
-
-    const order = await instance.orders.create({
-      amount: amountInPaise,
-      currency,
-      receipt,
-      notes,
-    });
-
-    return {
-      ...order,
-      provider: "razorpay",
-      isMock: false,
-    };
-  } catch (error) {
-    return {
-      id: `order_mock_${Date.now()}`,
-      amount: amountInPaise,
-      currency,
-      receipt,
-      notes,
-      provider: "mock",
-      isMock: true,
-      warning: error.message,
-    };
+  if (
+    !amountInPaise ||
+    typeof amountInPaise !== "number" ||
+    amountInPaise < 100
+  ) {
+    throw new Error("Amount must be at least 100 paise");
   }
+
+  const order = await razorpay.orders.create({
+    amount: amountInPaise,
+    currency,
+    receipt,
+    notes,
+  });
+
+  return {
+    ...order,
+    provider: "razorpay",
+    isMock: false,
+  };
 };
 
-const activatePlanForGym = async ({ gymData, planData }) => {
+const activatePlanForGym = async ({
+  gymData,
+  planData,
+  action = "activated",
+  paymentDetails = {},
+}) => {
   const now = new Date();
 
-  const current = getSubscriptionDetails(gymData);
-  const nextPlanStartDate = current.isExpired
-    ? now
-    : current.expiryDate || gymData.planStartDate || now;
+  const previousPlan = gymData.planData || {};
 
+  const currentEndDate = gymData.planEndDate
+    ? new Date(gymData.planEndDate)
+    : null;
+
+  const startFrom =
+    currentEndDate && currentEndDate > now ? currentEndDate : now;
+
+  const newEndDate = new Date(startFrom);
+
+  newEndDate.setMonth(newEndDate.getMonth() + Number(planData.duration || 0));
+
+  // Update Gym
   gymData.planId = planData.id;
+
   gymData.planData = {
     id: planData.id,
     name: planData.name,
     duration: Number(planData.duration || 0),
     amount: Number(planData.amount || 0),
   };
-  gymData.planStartDate = nextPlanStartDate;
+
+  gymData.planEndDate = newEndDate;
 
   await gymData.save();
+
+  // SINGLE SOURCE OF TRUTH
+  await SubscriptionHistory.create({
+    gymId: gymData.id,
+
+    gym: {
+      id: gymData.id,
+      gymName: gymData.gymName,
+      ownerName: gymData.ownerName,
+      email: gymData.email,
+      phone: gymData.phone,
+      username: gymData.username,
+    },
+
+    planId: planData.id,
+
+    plan: {
+      id: planData.id,
+      name: planData.name,
+      duration: Number(planData.duration || 0),
+      amount: Number(planData.amount || 0),
+    },
+
+    previousPlan: {
+      id: previousPlan.id,
+      name: previousPlan.name,
+      duration: Number(previousPlan.duration || 0),
+      amount: Number(previousPlan.amount || 0),
+    },
+
+    // Payment Details
+    orderId: paymentDetails.orderId || null,
+
+    paymentId: paymentDetails.paymentId || null,
+
+    signature: paymentDetails.signature || null,
+
+    paymentStatus: paymentDetails.paymentStatus || "paid",
+
+    paymentProvider: paymentDetails.provider || "razorpay",
+
+    // Dates
+    renewalDate: now,
+
+    expiryDate: newEndDate,
+
+    action,
+  });
 
   return gymData;
 };
 
+// simple plan k api
 exports.getSubscriptionPlans = async (req, res) => {
   try {
     const plans = await Plan.find({ isActive: true }).sort({ amount: 1 });
@@ -168,6 +145,7 @@ exports.getSubscriptionPlans = async (req, res) => {
   }
 };
 
+//  y kam ka hai , current ki api ka controller y hi h
 exports.getCurrentSubscription = async (req, res) => {
   try {
     const gymId = req.user.id;
@@ -187,13 +165,10 @@ exports.getCurrentSubscription = async (req, res) => {
       action: true,
       message: "current subscription fetched",
       data: {
+        planEndDate: gymData.planEndDate,
         planId: gymData.planId,
         planData: gymData.planData,
-        planStartDate: gymData.planStartDate,
-        expiryDate: subscription.expiryDate,
-        daysRemaining: subscription.daysRemaining,
-        status: subscription.status,
-        isFreePlan: subscription.isFreePlan,
+        status: gymData.status,
         notification,
       },
     });
@@ -212,42 +187,37 @@ exports.createSubscriptionOrder = async (req, res) => {
     const { planId } = req.body;
 
     if (!planId) {
-      return res.status(200).json({
+      return res.status(400).json({
         action: false,
         message: "Plan is required",
       });
     }
 
     const gymData = await Gym.findOne({ id: gymId });
+
     if (!gymData) {
-      return res.status(200).json({
+      return res.status(404).json({
         action: false,
         message: "Gym not found",
       });
     }
 
-    const planData = await Plan.findOne({ id: planId, isActive: true });
+    const planData = await Plan.findOne({
+      id: planId,
+      isActive: true,
+    });
+
     if (!planData) {
-      return res.status(200).json({
+      return res.status(404).json({
         action: false,
         message: "Plan not found",
       });
     }
 
     const amount = Number(planData.amount || 0);
-    if (amount <= 0) {
-      await activatePlanForGym({ gymData, planData });
-      return res.status(200).json({
-        action: true,
-        message: "Free plan activated successfully",
-        data: {
-          isFreePlan: true,
-          gym: gymData,
-        },
-      });
-    }
 
     const receipt = `sub_${Date.now()}`;
+
     const order = await getOrCreateRazorpayOrder({
       amountInPaise: amount * 100,
       currency: "INR",
@@ -258,41 +228,18 @@ exports.createSubscriptionOrder = async (req, res) => {
       },
     });
 
-    const paymentEntry = await SubscriptionPayment.create({
-      gymId,
-      planId: planData.id,
-      plan: {
-        id: planData.id,
-        name: planData.name,
-        duration: Number(planData.duration || 0),
-        amount,
-      },
-      orderId: order.id,
-      amount,
-      currency: order.currency,
-      status: "created",
-      provider: order.provider || "razorpay",
-      notes: order.notes,
-    });
-
     return res.status(200).json({
       action: true,
       message: "Subscription payment order created",
       data: {
         order,
-        payment: {
-          id: paymentEntry.id,
-          orderId: paymentEntry.orderId,
-          amount: paymentEntry.amount,
-          currency: paymentEntry.currency,
-          status: paymentEntry.status,
-          provider: paymentEntry.provider,
-        },
         razorpayKeyId: RAZORPAY_KEY_ID || null,
       },
     });
   } catch (error) {
-    return res.status(200).json({
+    console.error("Subscription create order error:", error);
+
+    return res.status(500).json({
       action: false,
       message: "Error creating subscription order",
       error: error.message,
@@ -303,142 +250,105 @@ exports.createSubscriptionOrder = async (req, res) => {
 exports.verifySubscriptionPayment = async (req, res) => {
   try {
     const gymId = req.user.id;
+
     const {
-      paymentId,
       planId,
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
     } = req.body;
 
-    const orderId = razorpay_order_id;
-    const razorpayPaymentId = razorpay_payment_id || paymentId;
-
-    if (!orderId || !planId) {
-      return res.status(200).json({
+    if (
+      !planId ||
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature
+    ) {
+      return res.status(400).json({
         action: false,
-        message: "Order id and plan id are required",
+        message: "Required payment fields missing",
       });
     }
 
-    const gymData = await Gym.findOne({ id: gymId });
+    const gymData = await Gym.findOne({
+      id: gymId,
+    });
+
     if (!gymData) {
-      return res.status(200).json({
+      return res.status(404).json({
         action: false,
         message: "Gym not found",
       });
     }
 
-    const planData = await Plan.findOne({ id: planId, isActive: true });
+    const planData = await Plan.findOne({
+      id: planId,
+      isActive: true,
+    });
+
     if (!planData) {
-      return res.status(200).json({
+      return res.status(404).json({
         action: false,
         message: "Plan not found",
       });
     }
 
-    const paymentEntry = await SubscriptionPayment.findOne({ gymId, orderId });
-
-    if (!paymentEntry) {
-      return res.status(200).json({
+    if (!RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({
         action: false,
-        message: "Payment entry not found",
+        message: "Razorpay secret missing",
       });
     }
 
-    let isVerified = false;
+    const generatedSignature = crypto
+      .createHmac("sha256", RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
 
-    if (
-      paymentEntry.provider === "razorpay" &&
-      RAZORPAY_KEY_SECRET &&
-      razorpay_signature &&
-      razorpayPaymentId
-    ) {
-      const expectedSignature = crypto
-        .createHmac("sha256", RAZORPAY_KEY_SECRET)
-        .update(`${orderId}|${razorpayPaymentId}`)
-        .digest("hex");
-
-      isVerified = expectedSignature === razorpay_signature;
-    } else {
-      isVerified = true;
-    }
-
-    if (!isVerified) {
-      paymentEntry.status = "failed";
-      await paymentEntry.save();
-
-      return res.status(200).json({
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({
         action: false,
-        message: "Payment verification failed",
+        message: "Invalid signature",
       });
     }
 
-    paymentEntry.paymentId = razorpayPaymentId;
-    paymentEntry.signature = razorpay_signature;
-    paymentEntry.status =
-      paymentEntry.provider === "mock" ? "mock-paid" : "paid";
-    paymentEntry.paidAt = new Date();
-    await paymentEntry.save();
+    // Prevent duplicate payments
+    const existingHistory = await SubscriptionHistory.findOne({
+      paymentId: razorpay_payment_id,
+    });
 
-    const updatedGym = await activatePlanForGym({ gymData, planData });
+    if (existingHistory) {
+      return res.status(400).json({
+        action: false,
+        message: "Payment already processed",
+      });
+    }
+
+    // Activate Plan
+    const updatedGym = await activatePlanForGym({
+      gymData,
+      planData,
+      action: "upgraded",
+
+      paymentDetails: {
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        signature: razorpay_signature,
+        provider: "razorpay",
+        paymentStatus: "paid",
+      },
+    });
 
     return res.status(200).json({
       action: true,
       message: "Subscription activated successfully",
-      data: {
-        gym: updatedGym,
-        payment: paymentEntry,
-      },
     });
   } catch (error) {
-    return res.status(200).json({
+    console.error("Subscription verify payment error:", error);
+
+    return res.status(500).json({
       action: false,
       message: "Error verifying subscription payment",
-      error: error.message,
-    });
-  }
-};
-
-exports.activateSubscriptionPlan = async (req, res) => {
-  try {
-    const gymId = req.user.id;
-    const { planId } = req.body;
-
-    if (!planId) {
-      return res.status(200).json({
-        action: false,
-        message: "Plan is required",
-      });
-    }
-
-    const gymData = await Gym.findOne({ id: gymId });
-    if (!gymData) {
-      return res.status(200).json({
-        action: false,
-        message: "Gym not found",
-      });
-    }
-
-    const planData = await Plan.findOne({ id: planId, isActive: true });
-    if (!planData) {
-      return res.status(200).json({
-        action: false,
-        message: "Plan not found",
-      });
-    }
-
-    await activatePlanForGym({ gymData, planData });
-
-    return res.status(200).json({
-      action: true,
-      message: "Subscription plan activated",
-      data: gymData,
-    });
-  } catch (error) {
-    return res.status(200).json({
-      action: false,
-      message: "Error activating subscription plan",
       error: error.message,
     });
   }

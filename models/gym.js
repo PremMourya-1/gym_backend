@@ -43,6 +43,9 @@ const gymSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    authCode: {
+      type: String,
+    },
 
     address: {
       type: String,
@@ -70,7 +73,7 @@ const gymSchema = new mongoose.Schema(
       amount: Number,
     },
 
-    planStartDate: {
+    planEndDate: {
       type: Date,
       required: true,
     },

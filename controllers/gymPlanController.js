@@ -4,7 +4,7 @@ const gymClient = require("../models/gymClients");
 exports.getGymPlan = async (req, res) => {
   try {
     const data = await gymPlan
-      .find({ "gym.id": req.user.id })
+      .find({ "gym.id": req.user.id, isActive: true })
       .sort({ createdAt: -1 });
 
     res.status(200).json({

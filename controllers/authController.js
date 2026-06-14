@@ -12,6 +12,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       name,
       email,
+      authCode: password,
       password: hash,
       role,
     });
@@ -23,19 +24,13 @@ exports.register = async (req, res) => {
 
 exports.userLogin = async (req, res) => {
   const { phone, password } = req.body;
-  console.log("gym login");
+
   try {
     const user = await gym.findOne({ phone });
     if (!user)
-      return res.status(200).json({ action: false, message: "User not found" });
-
-    // if (!user.emailVerified) {
-    //   return res.status(200).json({
-    //     action: false,
-    //     message:
-    //       "Email is not verified. Please verify your email before login.",
-    //   });
-    // }
+      return res
+        .status(200)
+        .json({ action: false, message: "invalid credentials" });
 
     const { email, planId, address, city, state, ownerName, gymName } =
       user || {};
@@ -43,7 +38,9 @@ exports.userLogin = async (req, res) => {
     const match = await bcrypt.compare(String(password), user.password);
 
     if (!match)
-      return res.status(200).json({ action: false, message: "Wrong password" });
+      return res
+        .status(200)
+        .json({ action: false, message: "invalid credentials" });
 
     const token = jwt.sign(
       { id: user.id, planId, email, address, city, state, ownerName, gymName },
@@ -65,7 +62,6 @@ exports.userLogin = async (req, res) => {
 
 exports.adminLogin = async (req, res) => {
   const { password, mobileNo } = req.body;
-  console.log("admin login");
 
   const admin = await User.findOne({
     mobileNo: String(mobileNo),

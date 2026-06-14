@@ -3,3 +3,7 @@
 
 // ADMIN_EMAIL=admin@gmail.com
 // ADMIN_PASSWORD=123456
+
+const SUBSCRIPTION_PAGE_LINK = "/subscription-plans";
+
+module.exports = { SUBSCRIPTION_PAGE_LINK };

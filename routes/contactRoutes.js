@@ -11,9 +11,11 @@ const {
 const authMiddleware = require("../middleware/authMiddleware");
 
 // ✅ PUBLIC - without auth
+
 router.post("/", createContact);
 
 // ✅ PROTECTED - with auth
+
 router.get("/", authMiddleware, getAllContacts);
 router.get("/:id", authMiddleware, getContactById);
 router.put("/:id", authMiddleware, updateContactStatus);
