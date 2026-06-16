@@ -271,8 +271,6 @@ receivePending = async (req, res) => {
     renewal.totalCollectedAmount =
       Number(renewal.totalCollectedAmount || 0) + payAmount;
 
-    console.log("y rha renewal aid amount", renewal.totalCollectedAmount);
-
     if (markAsDiscount) {
       renewal.discountOnPending =
         Number(renewal.discountOnPending || 0) + remaining;
@@ -294,23 +292,24 @@ receivePending = async (req, res) => {
     const howMuchNeeded =
       Number(client.plan?.amount) - totalReceivedWithDiscountTillToday;
 
-    const howMuchExtra = payAmount - howMuchNeeded;
-    // payamount = 400
-    // need = 300
-    // difference = 100 (extra)
-    const updateOnlyWithThisAmount = payAmount - howMuchExtra; // 300
+    const isUserPayingExtra = howMuchNeeded - payAmount < 0; // -150
+    // const isUserPayingExtra = howMuchExtra < 0; // false
+    let howMuchExtra = isUserPayingExtra ? howMuchNeeded - payAmount : 0;
+
+    const updateOnlyWithThisAmount = payAmount - howMuchExtra;
 
     if (markAsDiscount) {
       client.pendingAmount = 0;
     } else {
-      client.pendingAmount = client.pendingAmount - updateOnlyWithThisAmount;
+      if (isUserPayingExtra) {
+      }
+      client.pendingAmount =
+        Number(client.pendingAmount) - updateOnlyWithThisAmount;
     }
-
-    console.log(updateOnlyWithThisAmount, "if s pahle");
     if (updateOnlyWithThisAmount > 0) {
-      console.log(updateOnlyWithThisAmount, "y amount s update kro");
       client.paidAmount = updateOnlyWithThisAmount + Number(client.paidAmount);
     }
+
     client.totalPendingAmount = remaining;
 
     await client.save();

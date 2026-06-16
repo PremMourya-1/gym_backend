@@ -214,9 +214,10 @@ exports.createGymClient = async (req, res) => {
     });
 
     if (existingClient) {
+      console.log(existingClient);
       return res.status(200).json({
         action: false,
-        message: `Client already exists with this mobile number (${toCamelCase(existingClient.clientName)})`,
+        message: `Client already exists with this mobile number (${existingClient.clientName})`,
       });
     }
     // ============================

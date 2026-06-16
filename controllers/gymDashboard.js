@@ -98,14 +98,14 @@ exports.getDashboard = async (req, res) => {
       if (joinDate >= startOfMonth) thisMonthRegistered++;
       // updated logic by prem
       //  yaha neeche createdat ki jagah joining date thi
-      if (createdAt >= startOfToday) todayRegistered++;
+      if (joinDate >= startOfToday) todayRegistered++;
 
       // ✅ collection (cash flow)
       if (renewalDateRaw >= startOfMonth || joinDate >= startOfMonth) {
         thisMonthCollection += paid;
       }
       // updated logic by prem
-      if (createdAt >= startOfToday) todayCollection += paid;
+      if (joinDate >= startOfToday) todayCollection += paid;
 
       if (renewalDateRaw >= startOfToday) {
         // todayCollection += paid; // pahle esa tha

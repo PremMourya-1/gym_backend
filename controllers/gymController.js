@@ -169,7 +169,6 @@ exports.deleteGym = async (req, res) => {
 // ✅ CHANGE PASSWORD
 exports.changePassword = async (req, res) => {
   try {
-    console.log(req.user);
     const gymId = req.user.id;
     const { oldPassword, newPassword, confirmPassword } = req.body;
 

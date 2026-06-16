@@ -60,17 +60,17 @@ const gymClientSchema = new mongoose.Schema(
     },
 
     paidAmount: {
-      type: String,
+      type: Number,
     },
     pendingAmount: {
-      type: String,
+      type: Number,
     },
     totalPendingAmount: {
-      type: String,
+      type: Number,
     },
 
     discountAmount: {
-      type: String,
+      type: Number,
     },
     gender: {
       type: String,
